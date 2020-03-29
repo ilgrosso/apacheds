@@ -1,7 +1,6 @@
 package net.tirasa.sample.apacheds;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.io.IOException;
 import org.apache.directory.api.ldap.model.cursor.CursorException;
@@ -37,31 +36,50 @@ public class ApacheDSApplicationTests {
         connection.close();
     }
 
-    // This finds the group as expected: (&(objectClass=groupOfUniqueNames)(cn=testLDAPGroup))
+    private void checkFound(final EntryCursor cursor) throws LdapException, CursorException, IOException {
+        int found = 0;
+        while (cursor.next()) {
+            found++;
+            Entry entry = cursor.get();
+            assertEquals("cn=testLDAPGroup,ou=Groups,o=isp", entry.getDn().getName());
+        }
+        assertEquals(1, found);
+    }
+
+    // This finds the group as expected:
+    // (&(objectClass=groupOfUniqueNames)(cn=testLDAPGroup))
     @Test
-    public void success() throws LdapException, CursorException, IOException {
+    public void success1() throws LdapException, CursorException, IOException {
         try (EntryCursor cursor = connection.search(
                 "ou=groups,o=isp",
                 "(&(objectClass=groupOfUniqueNames)(cn=testLDAPGroup))", SearchScope.ONELEVEL, "*")) {
 
-            int found = 0;
-            while (cursor.next()) {
-                found++;
-                Entry entry = cursor.get();
-                assertEquals("cn=testLDAPGroup,ou=Groups,o=isp", entry.getDn().getName());
-            }
-            assertEquals(1, found);
+            checkFound(cursor);
         }
     }
 
-    // This does not find the group as expected: (&(objectClass=top)(cn=testLDAPGroup))
+    // After https://github.com/apache/directory-server/commit/b8a5559 now this as well finds the group as expected:
+    // (&(objectClass=top)(cn=testLDAPGroup))
     @Test
-    public void failure() throws LdapException, CursorException, IOException {
+    public void success2() throws LdapException, CursorException, IOException {
         try (EntryCursor cursor = connection.search(
                 "ou=groups,o=isp",
                 "(&(objectClass=top)(cn=testLDAPGroup))", SearchScope.ONELEVEL, "*")) {
 
-            assertFalse(cursor.next());
+            checkFound(cursor);
+        }
+    }
+
+    // After https://github.com/apache/directory-server/commit/b8a5559 now this as well finds the group as expected:
+    // (&(&(objectClass=top)(objectClass=groupOfUniqueNames))(cn=testLDAPGroup))
+    @Test
+    public void success3() throws LdapException, CursorException, IOException {
+        try (EntryCursor cursor = connection.search(
+                "ou=groups,o=isp",
+                "(&(&(objectClass=top)(objectClass=groupOfUniqueNames))(cn=testLDAPGroup))",
+                SearchScope.ONELEVEL, "*")) {
+
+            checkFound(cursor);
         }
     }
 }
